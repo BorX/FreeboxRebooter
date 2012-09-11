@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+# Variables globales du script
+URL='http://mafreebox.freebox.fr'
+PASSWORD=''
+
+die() {
+	echo >&2 $@
+	exit 1
+}
+
+freeboxWget() {
+	wget -T1 -t1 -qO /dev/null $@ || {
+		case $? in
+			4) die "Probleme d'acces à la Freebox. Essayez de vous connecter manuellement." ;;
+			5) die "Probleme SSL. Essayez de vous connecter manuellement." ;;
+		esac
+	}
+}
+
+# Fichier temporaire pour le cookie
+TMP_COOKIES_FILE="$(mktemp)"
+
+# Authentification et enregistrement du cookie
+freeboxWget --save-cookies "$TMP_COOKIES_FILE" --post-data "login=freebox&passwd=$PASSWORD" "$URL/login.php"
+
+# Verification du cookie
+[ -r "$TMP_COOKIES_FILE" ] && grep -q '^mafreebox.freebox.fr' "$TMP_COOKIES_FILE" || die "Authentification echouee. Verifiez le mot de passe."
+
+# Redemarrage de la freebox
+freeboxWget --load-cookies "$TMP_COOKIES_FILE" --post-data 'method=system.reboot&redirect_after=/reboot.php&timeout=1' -p "$URL/system.cgi"
+
+# Nettoyage du cookie
+rm "$TMP_COOKIES_FILE"
+
